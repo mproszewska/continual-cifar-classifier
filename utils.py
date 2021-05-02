@@ -1,24 +1,24 @@
+import numpy as np
 import os
 import torch
 
+from torch.autograd import Variable
 
-def accuracy(model, dataloader_test, classes, classes_before=[], is_matched=None):
+
+def accuracy(model, dataloader_test, classes, is_matched=None):
     model.eval()
     device = next(model.parameters()).device
     test_all, test_acc, test_acc_if_matched = 0, 0.0, 0
     with torch.no_grad():
-        for imgs, labels in dataloader_test:
+        for idx, (imgs, labels) in enumerate(dataloader_test):
             imgs, labels = imgs.to(device), labels.to(device)
             for i, c in enumerate(classes):
                 labels[labels == c] = i
             output = model(imgs)
-            output_classes = output[
-                :, len(classes_before) : len(classes_before) + len(classes)
-            ]
-            is_predicted = output_classes.argmax(dim=-1) == labels
+            is_predicted = output.argmax(dim=-1) == labels
             test_acc_if_matched += (is_predicted).sum().item()
             if is_matched is not None:
-                mask = is_matched[test_all : test_all + imgs.shape[0]]
+                mask = is_matched[idx] * torch.ones(imgs.shape[0]).bool()
                 is_predicted[~mask] = 0
             test_acc += (is_predicted).sum().item()
             test_all += imgs.shape[0]
@@ -60,15 +60,51 @@ def tasks_relatedness(rec_error_first, rec_error_second):
 def get_task_dir(model_dir, task):
     return f"{model_dir}/task_{task:02}"
 
-
-def expert_gate_loss(model, dataloader_test, criterion):
+def get_model_dir(model_dir, model):
+    return f"{model_dir}/model_{model:02}"
+    
+def expert_AE_gate_loss(model, dataloader_test, criterion):
     test_loss, test_all = 0, 0
     device = next(model.parameters()).device
     with torch.no_grad():
         for imgs, _ in dataloader_test:
-            imgs = imgs.to(device).flatten(start_dim=1)
+            imgs = imgs.to(device)
             output = model(imgs)
             loss = criterion(output, imgs)
             test_loss += loss.item() * imgs.shape[0]
             test_all += imgs.shape[0]
     return test_loss / test_all
+
+
+def expert_gate_GAN_loss(model_G, model_D, dataloader_test, criterion, z_dim):
+    test_G_loss, test_D_loss, test_all = 0, 0, 0
+    device = next(model_G.parameters()).device
+    real_label, fake_label = 1.0, 0.0
+
+    with torch.no_grad():
+        for imgs, _ in dataloader_test:
+            imgs = imgs.to(device)
+            valid = Variable(
+                torch.Tensor(imgs.shape[0], 1).fill_(real_label), requires_grad=False
+            ).to(device)
+            fake = Variable(
+                torch.Tensor(imgs.shape[0], 1).fill_(fake_label), requires_grad=False
+            ).to(device)
+            noise = Variable(
+                torch.Tensor(np.random.normal(0, 1, (imgs.shape[0], z_dim, 1, 1)))
+            ).to(device)
+
+            real_loss = criterion(model_D(imgs), valid)
+            gen_imgs = model_G(noise)
+            fake_loss = criterion(model_D(gen_imgs.detach()), fake)
+            loss_D = real_loss + fake_loss
+
+            gen_imgs = model_G(noise)
+            output = model_D(gen_imgs)
+            D_x = output.mean().item()
+            loss_G = criterion(output, valid)
+
+            test_D_loss += real_loss.item() * imgs.shape[0]
+            test_G_loss += loss_D.item() * imgs.shape[0]
+            test_all += imgs.shape[0]
+    return test_G_loss / test_all, test_D_loss / test_all

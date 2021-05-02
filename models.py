@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -50,12 +51,35 @@ class AlexNet(nn.Module):
 class AE(nn.Module):
     def __init__(self, input_dim, hidden_dim):
         super(AE, self).__init__()
-        self.criterion = nn.MSELoss()
-        self.encoder = nn.Sequential(nn.Linear(input_dim, hidden_dim), nn.ReLU())
-        self.decoder = nn.Sequential(nn.Linear(hidden_dim, input_dim))
+
+        self.hidden_dim = hidden_dim
+        self.encoder = nn.Sequential(
+            nn.Conv2d(3, 16, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+            nn.Conv2d(16, 32, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.Flatten(),
+            nn.Linear(64 * 4 * 4, hidden_dim),
+        )
+        self.project = nn.Linear(hidden_dim, 4 * 4 * 64)
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.ConvTranspose2d(32, 16, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+            nn.ConvTranspose2d(16, 3, kernel_size=4, stride=2, padding=1),
+        )
 
     def forward(self, x):
         x = self.encoder(x)
+        x = self.project(x).reshape(x.shape[0], -1, 4, 4)
         x = self.decoder(x)
         return x
 
@@ -63,15 +87,90 @@ class AE(nn.Module):
 class VAE(nn.Module):
     def __init__(self, input_dim, hidden_dim):
         super(VAE, self).__init__()
-        self.encoder = nn.Sequential(nn.Linear(input_dim, hidden_dim * 2), nn.ReLU())
-        self.decoder = nn.Sequential(nn.Linear(hidden_dim, input_dim))
+
+        self.hidden_dim = hidden_dim
+        self.encoder = nn.Sequential(
+            nn.Conv2d(3, 16, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+            nn.Conv2d(16, 32, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+        )
+        self.q_mean = nn.Linear(4 * 4 * 64, hidden_dim)
+        self.q_logvar = nn.Linear(4 * 4 * 64, hidden_dim)
+        self.project = nn.Linear(hidden_dim, 4 * 4 * 64)
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.ConvTranspose2d(32, 16, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+            nn.ConvTranspose2d(16, 3, kernel_size=4, stride=2, padding=1),
+        )
 
     def forward(self, x):
-        mu, log_var = torch.split(self.encoder(x), 2)
+        x = self.encoder(x)
+        x = x.view(x.shape[0], -1)
+        mu = self.q_mean(x)
+        log_var = self.q_logvar(x)
         z = self.reparameterize(mu, log_var)
-        return self.decode(z), mu, log_var
+        z = self.project(z).view(z.shape[0], -1, 4, 4)
+        z = self.decoder(z)
+        return z, mu, log_var
 
     def reparameterize(self, mu, logvar):
         std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
         return eps * std + mu
+
+
+class Generator(nn.Module):
+    def __init__(self, z_dim, img_shape):
+        super(Generator, self).__init__()
+        self.z_dim = z_dim
+        self.img_shape = img_shape
+        self.net = nn.Sequential(
+            nn.ConvTranspose2d(z_dim, 512, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(512),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(512, 256, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(256),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(256, 128, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(128),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(128, 64, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(64),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(64, 3, 4, 2, 1, bias=False),
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
+
+class Discriminator(nn.Module):
+    def __init__(self, img_shape):
+        super(Discriminator, self).__init__()
+        self.img_shape = img_shape
+        self.net = nn.Sequential(
+            nn.Conv2d(3, 64, 4, 2, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(64, 128, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(128),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(128, 256, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(256),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(256, 1, 4, 1, 0, bias=False),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x):
+        x = self.net(x)
+        return x.view(x.shape[0], -1)

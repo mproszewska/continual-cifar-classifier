@@ -15,10 +15,16 @@ torch.random.manual_seed(123)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-models_dir = "models/task_oracle"
+
+from perm import classes_splits
+
+i = 9
+models_dir = f"models/task_oracle_{i}"
 make_dir(models_dir)
 
 classes_split = [range(10 * i, (i + 1) * 10) for i in range(10)]
+random_permutation = classes_splits[i]
+classes_split = [random_permutation[10 * i : (i + 1) * 10] for i in range(10)]
 batch_size = 128
 
 
@@ -55,9 +61,10 @@ def train(classes, num_epochs, lr, step_size, dropout_p):
         train_loss = train_loss / train_all
         train_acc = train_acc / train_all
         test_acc, _ = accuracy(model, dataloader_test, classes)
-        print(
-            f"Epoch: {epoch} | Train loss: {train_loss:.4f} | Train accuracy: {train_acc:.4f} | Test accuracy: {test_acc:.4f}"
-        )
+        if epoch % 30 == 0:
+            print(
+                f"Epoch: {epoch} | Train loss: {train_loss:.4f} | Train accuracy: {train_acc:.4f} | Test accuracy: {test_acc:.4f}"
+            )
     return model, optimizer
 
 
