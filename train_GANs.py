@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 
 from dataset import CIFAR
 from models import Discriminator, Generator
-from utils import expert_gate_GAN_loss, get_task_dir, load_model, make_dir, save_model
+from utils import GAN_loss, get_task_dir, load_model, make_dir, save_model
 
 torch.random.manual_seed(1234)
 
@@ -23,7 +23,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 models_dir = f"models/GANs"
 make_dir(models_dir)
 
-classes_split = [range(10 * i, (i + 1) * 10) for i in range(10)]
+classes_split = [range(20 * i, (i + 1) * 20) for i in range(5)]
 
 
 def train(task_dir, classes, z_dim, num_epochs, lr):
@@ -87,19 +87,18 @@ def train(task_dir, classes, z_dim, num_epochs, lr):
 
         train_G_loss = train_G_loss / train_all
         train_D_loss = train_D_loss / train_all
-        test_G_loss, test_D_loss = expert_gate_GAN_loss(
+        test_G_loss, test_D_loss = GAN_loss(
             model_G, model_D, dataloader_test, criterion, z_dim
         )
-        if epoch % 10 == 0:
-            print(
-                f"Epoch: {epoch} | Train loss : G {train_G_loss:.4f}  D {train_D_loss:.4f} | Test loss: G {test_G_loss:.4f} D {test_D_loss:.4f}"
-            )
+        print(
+            f"Epoch: {epoch} | Train loss : G {train_G_loss:.4f}  D {train_D_loss:.4f} | Test loss: G {test_G_loss:.4f} D {test_D_loss:.4f}"
+        )
     return model_G, model_D, optimizer_G, optimizer_D
 
 
 lr = 0.001
 z_dim = 128
-num_epochs = 300
+num_epochs = 150
 batch_size = 128
 
 for task, classes in enumerate(classes_split):
@@ -108,6 +107,8 @@ for task, classes in enumerate(classes_split):
     task_dir = get_task_dir(models_dir, task)
     make_dir(task_dir)
 
-    model_G, model_D, optimizer_G, optimizer_D = train(task_dir, classes, z_dim, num_epochs, lr=lr)
+    model_G, model_D, optimizer_G, optimizer_D = train(
+        task_dir, classes, z_dim, num_epochs, lr=lr
+    )
     save_model(f"{task_dir}/Generator.pch", model_G, optimizer_G)
     save_model(f"{task_dir}/Discriminator.pch", model_D, optimizer_D)

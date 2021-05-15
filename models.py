@@ -174,3 +174,25 @@ class Discriminator(nn.Module):
     def forward(self, x):
         x = self.net(x)
         return x.view(x.shape[0], -1)
+
+
+class Alexnet_FE(nn.Module):
+    def __init__(self, alexnet_model):
+        super(Alexnet_FE, self).__init__()
+        self.fe_model = nn.Sequential(*list(alexnet_model.children())[0][:-2])
+        self.fe_model.train = False
+
+    def forward(self, x):
+        return self.fe_model(x)
+
+
+class AE_ImageNet(nn.Module):
+    def __init__(self, hidden_dim):
+        super(AE_ImageNet, self).__init__()
+        self.encoder = nn.Sequential(nn.Linear(256 * 13 * 13, hidden_dim), nn.ReLU())
+        self.decoder = nn.Sequential(nn.Linear(hidden_dim, 256 * 13 * 13), nn.Sigmoid())
+
+    def forward(self, x):
+        encoded_x = self.encoder(x)
+        reconstructed_x = self.decoder(encoded_x)
+        return reconstructed_x

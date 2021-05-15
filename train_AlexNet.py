@@ -20,6 +20,7 @@ batch_size = 128
 train_data = CIFAR("CIFAR/train", classes=classes)
 dataloader_train = DataLoader(train_data, batch_size=batch_size, shuffle=True)
 
+
 test_data = CIFAR("CIFAR/test", classes=classes)
 dataloader_test = DataLoader(test_data, batch_size=batch_size)
 
@@ -51,7 +52,7 @@ def train(num_epochs, lr, step_size):
         lr_scheduler.step()
 
         train_loss, train_acc = train_loss / train_all, train_acc / train_all
-        test_acc, _ = accuracy(model, dataloader_test, classes)
+        test_acc = accuracy(model, dataloader_test, classes)
         print(
             f"Epoch: {epoch} | Train loss: {train_loss:.4f} | Train accuracy: {train_acc:.4f} | Test accuracy: {test_acc:.4f}"
         )

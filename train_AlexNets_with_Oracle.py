@@ -16,15 +16,10 @@ torch.random.manual_seed(123)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-from perm import classes_splits
-
-i = 9
-models_dir = f"models/task_oracle_{i}"
+models_dir = f"models/task_oracle"
 make_dir(models_dir)
 
-classes_split = [range(10 * i, (i + 1) * 10) for i in range(10)]
-random_permutation = classes_splits[i]
-classes_split = [random_permutation[10 * i : (i + 1) * 10] for i in range(10)]
+classes_split = [[*range(20 * i, (i + 1) * 20)] for i in range(5)]
 batch_size = 128
 
 
@@ -60,19 +55,21 @@ def train(classes, num_epochs, lr, step_size, dropout_p):
         lr_scheduler.step()
         train_loss = train_loss / train_all
         train_acc = train_acc / train_all
-        test_acc, _ = accuracy(model, dataloader_test, classes)
-        if epoch % 30 == 0:
-            print(
-                f"Epoch: {epoch} | Train loss: {train_loss:.4f} | Train accuracy: {train_acc:.4f} | Test accuracy: {test_acc:.4f}"
-            )
+        test_acc = accuracy(model, dataloader_test, classes)
+        print(
+            f"Epoch: {epoch} | Train loss: {train_loss:.4f} | Train accuracy: {train_acc:.4f} | Test accuracy: {test_acc:.4f}"
+        )
     return model, optimizer
 
 
+c_classes = []
 for task, classes in enumerate(classes_split):
     print(f"Task: {task}")
+    c_classes += classes
     model, optimizer = train(
-        classes, num_epochs=90, lr=5e-4, step_size=30, dropout_p=0.7
+        classes, num_epochs=90, lr=5e-4, step_size=30, dropout_p=0.5
     )
     task_dir = get_task_dir(models_dir, task)
     make_dir(task_dir)
     save_model(f"{task_dir}/AlexNet.pch", model, optimizer)
+    del model, optimizer

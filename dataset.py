@@ -15,8 +15,8 @@ class CIFAR(Dataset):
         self.std = [0.2673, 0.2564, 0.2762]
         self.flip = transforms.Compose(
             [
-                # transforms.RandomVerticalFlip(),
-                transforms.RandomHorizontalFlip()
+                transforms.RandomVerticalFlip(),
+                # transforms.RandomHorizontalFlip()
             ]
         )
         self.transform = transforms.Compose(
@@ -33,7 +33,6 @@ class CIFAR(Dataset):
             labels = content[b"fine_labels"]
 
         self.data, self.labels = list(), list()
-
         for img, label in zip(data, labels):
             if label in classes:
                 img = np.moveaxis(img.reshape(3, 32, 32), [0, 1, 2], [2, 1, 0])
@@ -47,6 +46,7 @@ class CIFAR(Dataset):
         if self.mode == "train":
             img = self.flip(img)
         img = self.transform(img)
+        img = img.permute(0, 2, 1)
         return img, self.labels[index]
 
     def __len__(self):
