@@ -49,6 +49,6 @@ Significant parameters:
     * VAE of GAN: Generative Replay using VAE or GAN trained for each task
 
 ## Results
-![Overall accuracy after each task](plots/accuracy.png)
-![Accuracy after the last task](plots/accuracy_bar.png)
+<img src="plots/gates_accuracy.png" alt="" width="400"/> <img src="plots/replay_accuracy.png" alt="" width="400"/>
+<img src="plots/accuracy.png" alt="" width="400"/> <img src="plots/accuracy_bar.png" alt="" width="400"/>
 
