@@ -43,8 +43,8 @@ Significant parameters:
 * Autoencoder Gate type: AE or VAE
 * relatedness_threshold: threshold for Expert Gate and Merge Task
 * GR: type of replay
-    * None: standard LwF
-    * real: access to all data, using real data for knowledge distillation
+    * None: standard LwF, current task's data
+    * real: access to all data, using previous tasks' data for knowledge distillation
     * noise: using noise instead of proper data for knowledge distillation
     * VAE of GAN: Generative Replay using VAE or GAN trained for each task
 
